@@ -5,21 +5,30 @@ import {defineConfig, loadEnv} from 'vite';
 import dotenv from 'dotenv';
 
 export default defineConfig(({mode}) => {
-  dotenv.config({ path: '.env.example' });
+  dotenv.config(); // 預設讀取 .env
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      // 移除 process.env.GEMINI_API_KEY 的硬編碼綁定，避免後端 Key 暴露
     },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      target: 'esnext',
+      minify: 'esbuild',
+      rollupOptions: {
+        output: {
+          manualChunks: undefined,
+          inlineDynamicImports: true,
+        },
+      },
+      chunkSizeWarningLimit: 100,
+    },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
   };
