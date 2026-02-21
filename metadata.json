@@ -1,0 +1,5 @@
+{
+  "name": "N_Weather",
+  "description": "一個可以嵌入 Notion 的天氣查詢小插件，支援地點輸入和天氣 API 查詢。",
+  "requestFramePermissions": []
+}
