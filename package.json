@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server/index.ts",
+    "start": "NODE_ENV=production tsx server/index.ts",
     "server": "tsx server/index.ts",
     "dev:all": "npm run server & npm run dev",
     "build": "vite build",

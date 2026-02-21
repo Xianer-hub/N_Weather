@@ -86,6 +86,7 @@ async function startServer() {
         params: { q, type: 'like', sort: 'population', appid: OPENWEATHER_API_KEY },
       });
       const cities = response.data.list?.slice(0, 5).map((item: any) => ({
+        id: item.id,
         name: item.name,
         country: item.sys?.country,
       })) || [];
@@ -103,8 +104,23 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Production static file serving (if needed later)
-    app.use(express.static('dist'));
+    // Production static file serving
+    app.use(express.static('dist', {
+      etag: false,
+      lastModified: false,
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000');
+        }
+      }
+    }));
+
+    // Fallback to index.html for SPA routing
+    app.get('*', (req, res) => {
+      res.sendFile('index.html', { root: 'dist' });
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

@@ -70,6 +70,7 @@ export interface ForecastResponse {
 }
 
 export interface CitySuggestion {
+  id: number;
   name: string;
   country: string;
 }

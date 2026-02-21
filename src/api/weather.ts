@@ -32,6 +32,10 @@ export const processForecast = (forecastData: ForecastResponse): ForecastItem[] 
   const dailyForecast: ForecastItem[] = [];
   const seenDates = new Set<string>();
 
+  if (!forecastData || !Array.isArray(forecastData.list)) {
+    return [];
+  }
+
   // 第一次嘗試：優先收集每天中午 12:00 的預報
   for (const item of forecastData.list) {
     const date = item.dt_txt.split(' ')[0];

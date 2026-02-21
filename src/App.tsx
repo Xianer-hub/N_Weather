@@ -13,6 +13,7 @@ function getContainerSize() {
 }
 
 export default function App() {
+  console.log('App version: 1.0.1 - Updated UI and Error Fixes');
   const [location, setLocation] = useState('');
   const [showInput, setShowInput] = useState(true);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
@@ -92,12 +93,19 @@ export default function App() {
       setError('請輸入地點');
       return;
     }
+
+    // Reset to Celsius when searching for a new city
+    setUnit('celsius');
+
     setLoading(true);
     setError(null);
+    // Clear data to prevent useEffect from refetching with old city and new unit
+    setWeatherData(null);
+
     try {
       const [currentData, forecastData] = await Promise.all([
-        weatherApi.getCurrentWeather(cityToFetch, unit),
-        weatherApi.getForecast(cityToFetch, unit),
+        weatherApi.getCurrentWeather(cityToFetch, 'celsius'),
+        weatherApi.getForecast(cityToFetch, 'celsius'),
       ]);
       setWeatherData({ current: currentData, forecast: processForecast(forecastData) });
       localStorage.setItem(STORAGE_KEYS.LAST_CITY, cityToFetch);
@@ -170,38 +178,30 @@ export default function App() {
       )}
 
       {showInput && (
-        <div className="relative flex-shrink-0">
-          <div className="flex gap-1.5">
-            <div className="relative flex-grow">
-              <input
-                type="text"
-                className="w-full p-1.5 pl-7 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="輸入城市"
-                value={location}
-                onChange={(e) => onLocationChange(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (setShowSuggestions(false), fetchWeather())}
-                onFocus={() => setShowSuggestions(true)}
-              />
-              <Search className="absolute left-2 top-1.5 text-gray-400" size={14} />
-            </div>
-            <button
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-              onClick={() => fetchWeather()}
-              disabled={loading || isOffline}
-            >
-              {loading ? <Loader2 className="animate-spin" size={16} /> : '查詢'}
-            </button>
+        <div className="relative flex-shrink-0 mb-2">
+          <div className="relative">
+            <input
+              type="text"
+              className="w-full p-2 pl-8 text-sm border-b border-gray-200 focus:border-blue-500 focus:outline-none bg-transparent transition-colors"
+              placeholder="輸入城市並按 Enter..."
+              value={location}
+              onChange={(e) => onLocationChange(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (setShowSuggestions(false), fetchWeather())}
+              onFocus={() => setShowSuggestions(true)}
+            />
+            <Search className="absolute left-2 top-2.5 text-gray-400" size={14} />
+            {loading && <Loader2 className="absolute right-2 top-2.5 animate-spin text-blue-500" size={14} />}
           </div>
-          {showSuggestions && suggestions.length > 0 && (
+          {showSuggestions && Array.isArray(suggestions) && suggestions.length > 0 && (
             <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-32 overflow-y-auto text-sm">
-              {suggestions.map((city) => (
+              {suggestions.map((city, index) => (
                 <li
-                  key={`${city.name}-${city.country || ''}`}
-                  className="px-2 py-1 hover:bg-gray-100 cursor-pointer flex items-center gap-1 text-gray-800"
+                  key={city.id || `${city.name}-${city.country || ''}-${index}`}
+                  className="px-2 py-1.5 hover:bg-gray-50 cursor-pointer flex items-center gap-2 text-gray-700 transition-colors"
                   onClick={() => selectSuggestion(city)}
                 >
                   <MapPin size={12} className="text-gray-400 flex-shrink-0" />
-                  <span className="truncate">{city.name}</span>
+                  <span className="truncate font-medium">{city.name}</span>
                   <span className="text-gray-400 text-xs truncate">{city.country}</span>
                 </li>
               ))}
@@ -210,58 +210,66 @@ export default function App() {
         </div>
       )}
 
-      {!showInput && weatherData && (
-        <div className="flex-grow flex flex-col">
+      {!showInput && weatherData && weatherData.current && (
+        <div className="flex-grow flex flex-col animate-in fade-in duration-500">
           <div className="flex justify-between items-start">
             <div className="text-center flex-grow">
               <h2 className={`font-bold text-gray-800 ${sizes.text}`}>{weatherData.current.name}</h2>
-              <div className="flex items-center justify-center gap-1">
-                <img
-                  src={`https://openweathermap.org/img/wn/${weatherData.current.weather[0].icon}@2x.png`}
-                  alt=""
-                  className="w-12 h-12"
-                  loading="lazy"
-                />
+              <div className="flex items-center justify-center gap-1 my-1">
+                {Array.isArray(weatherData.current.weather) && weatherData.current.weather.length > 0 && (
+                  <img
+                    src={`https://openweathermap.org/img/wn/${weatherData.current.weather[0].icon}@2x.png`}
+                    alt=""
+                    className="w-12 h-12 drop-shadow-sm"
+                    loading="lazy"
+                  />
+                )}
                 <span className={`font-bold text-gray-900 ${sizes.textSm}`}>
                   {formatTemp(weatherData.current.main.temp)}
                 </span>
               </div>
-              <p className="text-gray-500 text-xs capitalize">{weatherData.current.weather[0].description}</p>
+              <p className="text-gray-500 text-xs capitalize">
+                {Array.isArray(weatherData.current.weather) && weatherData.current.weather.length > 0
+                  ? weatherData.current.weather[0].description
+                  : ''}
+              </p>
             </div>
             <div className="flex gap-1">
-              <button onClick={toggleUnit} className="p-1 text-gray-400 hover:text-gray-600" title="切換單位">
+              <button onClick={toggleUnit} className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100" title="切換單位">
                 <Thermometer size={14} />
               </button>
-              <button onClick={() => setShowInput(true)} className="p-1 text-gray-400 hover:text-gray-600">
-                <X size={14} />
+              <button onClick={() => setShowInput(true)} className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100" title="搜尋">
+                <Search size={14} />
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-1 p-2 bg-gray-50 rounded text-xs mt-2">
-            <div className="flex flex-col items-center">
-              <Droplets size={12} className="text-blue-400" />
-              <span className="text-gray-400">濕度</span>
-              <span className="font-medium">{weatherData.current.main.humidity}%</span>
+          <div className="grid grid-cols-3 gap-2 p-3 bg-gray-50/80 rounded-lg text-xs mt-3 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-1">
+              <Droplets size={14} className="text-blue-400" />
+              <span className="text-gray-500">濕度</span>
+              <span className="font-semibold text-gray-700">{weatherData.current.main.humidity}%</span>
             </div>
-            <div className="flex flex-col items-center">
-              <Wind size={12} className="text-gray-400" />
-              <span className="text-gray-400">風速</span>
-              <span className="font-medium">{weatherData.current.wind.speed} {unit === 'celsius' ? 'm/s' : 'mph'}</span>
+            <div className="flex flex-col items-center gap-1">
+              <Wind size={14} className="text-teal-400" />
+              <span className="text-gray-500">風速</span>
+              <span className="font-semibold text-gray-700">{weatherData.current.wind.speed} {unit === 'celsius' ? 'm/s' : 'mph'}</span>
             </div>
-            <div className="flex flex-col items-center">
-              <Thermometer size={12} className="text-orange-400" />
-              <span className="text-gray-400">體感</span>
-              <span className="font-medium">{formatTemp(weatherData.current.main.feels_like)}</span>
+            <div className="flex flex-col items-center gap-1">
+              <Thermometer size={14} className="text-orange-400" />
+              <span className="text-gray-500">體感</span>
+              <span className="font-semibold text-gray-700">{formatTemp(weatherData.current.main.feels_like)}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-1 text-center pt-2 mt-auto">
-            {weatherData.forecast.map((day) => (
-              <div key={day.dt} className="flex flex-col items-center">
-                <span className="text-gray-400 text-xs">{getDayName(day.dt_txt)}</span>
-                <img src={`https://openweathermap.org/img/wn/${day.weather[0].icon}.png`} alt="" className="w-8 h-8" loading="lazy" />
-                <span className="font-medium text-xs text-gray-800">{formatTemp(day.main.temp)}</span>
+          <div className="grid grid-cols-5 gap-1 text-center pt-3 mt-auto border-t border-gray-100">
+            {Array.isArray(weatherData.forecast) && weatherData.forecast.map((day) => (
+              <div key={day.dt} className="flex flex-col items-center gap-1">
+                <span className="text-gray-400 text-[10px] uppercase tracking-wider">{getDayName(day.dt_txt)}</span>
+                {Array.isArray(day.weather) && day.weather.length > 0 && (
+                  <img src={`https://openweathermap.org/img/wn/${day.weather[0].icon}.png`} alt="" className="w-6 h-6 opacity-80" loading="lazy" />
+                )}
+                <span className="font-medium text-xs text-gray-700">{formatTemp(day.main.temp)}</span>
               </div>
             ))}
           </div>
